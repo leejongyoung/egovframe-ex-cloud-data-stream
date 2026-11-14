@@ -1,16 +1,27 @@
 #!/usr/bin/python3 
 
+import os
+
 import Adafruit_DHT      # 라이브러리 불러오기
 import pika # AMQP 라이브러리
 
 class Publisher:
     def __init__(self):
-        self.__url = '192.168.100.60'
-        self.__port = 5672
-        self.__vhost = 'egov'
-        self.__cred = pika.PlainCredentials('guest', 'guest')
-        self.__exchange = 'sensor';
-        self.__queue = 'q_temp_humi';
+        self.__url = os.environ.get('RABBITMQ_HOST', 'localhost')
+        try:
+            self.__port = int(os.environ.get('RABBITMQ_PORT', '5672'))
+        except ValueError:
+            raise ValueError('RABBITMQ_PORT must be an integer between 1 and 65535') from None
+        if not 1 <= self.__port <= 65535:
+            raise ValueError('RABBITMQ_PORT must be an integer between 1 and 65535')
+        self.__vhost = os.environ.get('RABBITMQ_VHOST', 'egov')
+        username = os.environ.get('RABBITMQ_USER') or os.environ.get('RABBITMQ_DEFAULT_USER', 'guest')
+        password = os.environ.get('RABBITMQ_PASSWORD') or os.environ.get('RABBITMQ_DEFAULT_PASS')
+        if not password:
+            raise ValueError('Set RABBITMQ_PASSWORD or RABBITMQ_DEFAULT_PASS before publishing')
+        self.__cred = pika.PlainCredentials(username, password)
+        self.__exchange = os.environ.get('RABBITMQ_EXCHANGE', 'sensor')
+        self.__queue = os.environ.get('RABBITMQ_ROUTING_KEY', 'q_temp_humi')
         return
 
     def main(self):
@@ -40,8 +51,9 @@ class Publisher:
         conn.close()
         return
 
-publisher = Publisher()
-publisher.main()
+if __name__ == '__main__':
+    publisher = Publisher()
+    publisher.main()
 
 
 
